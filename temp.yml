@@ -1,0 +1,347 @@
+Description: >-
+    Project for DataGrokr
+    Author - DIPALI MISHRA
+    Creating the infrastructure for VPC with public and Private Subnet.
+
+Parameters:
+  EnvironmentName1:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: vpc-one
+
+  Vpc1CIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.192.0.0/16
+
+  PublicSubnet11CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Type: String
+    Default: 10.192.10.0/24
+
+  PrivateSubnet11CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Type: String
+    Default: 10.192.20.0/24
+
+  Img1:
+    Description: Please Enter AMI id
+    Type: String
+    Default: ami-08e0ca9924195beba
+
+  EnvironmentName2:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: vpc-two
+
+  Vpc2CIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.191.0.0/16
+
+  PublicSubnet21CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Type: String
+    Default: 10.191.10.0/24
+
+  PrivateSubnet21CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Type: String
+    Default: 10.191.20.0/24
+
+  Img2:
+    Description: Please Enter AMI id
+    Type: String
+    Default: ami-08e0ca9924195beba
+
+Resources:
+  VPC1:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref Vpc1CIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName1
+
+  InternetGateway1:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName1
+
+  InternetGatewayAttachment1:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway1
+      VpcId: !Ref VPC1
+
+
+  PublicSubnet11:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet11CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName1} Public Subnet (AZ1)
+
+  PrivateSubnet11:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet11CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName1} Private Subnet (AZ1)
+
+  NatGateway11EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment1
+    Properties:
+      Domain: vpc
+
+  NatGateway11:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway11EIP.AllocationId
+      SubnetId: !Ref PublicSubnet11
+
+  PublicRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName1} Public Routes
+
+  DefaultPublicRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment1
+    Properties:
+      RouteTableId: !Ref PublicRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway1
+
+  PublicSubnet1RouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable1
+      SubnetId: !Ref PublicSubnet11
+
+  PrivateRouteTable11:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName1} Private Routes (AZ1)
+
+
+  DefaultPrivateRoute11:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable11
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway11
+
+  PrivateSubnet1RouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable11
+      SubnetId: !Ref PrivateSubnet11
+
+  NoIngressSecurityGroup1:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "no-ingress-sg"
+      GroupDescription: "Security group with no ingress rule"
+      VpcId: !Ref VPC1
+
+  myInstance1:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref Img1
+      SecurityGroupIds:
+      - !GetAtt VPC1.DefaultSecurityGroup
+      SubnetId: !Ref PrivateSubnet11
+      InstanceType: t2.micro
+
+
+
+
+
+
+  VPC2:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref Vpc2CIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName2
+
+
+  InternetGateway2:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName2
+
+  InternetGatewayAttachment2:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway2
+      VpcId: !Ref VPC2
+
+
+  PublicSubnet21:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet21CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName2} Public Subnet (AZ1)
+
+  PrivateSubnet21:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet21CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName2} Private Subnet (AZ1)
+
+  NatGateway21EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment2
+    Properties:
+      Domain: vpc
+
+
+  NatGateway21:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway21EIP.AllocationId
+      SubnetId: !Ref PublicSubnet21
+
+  PublicRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName2} Public Routes
+
+  DefaultPublicRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment2
+    Properties:
+      RouteTableId: !Ref PublicRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway2
+
+  PublicSubnet1RouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable2
+      SubnetId: !Ref PublicSubnet21
+
+  PrivateRouteTable21:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName2} Private Routes (AZ1)
+
+  DefaultPrivateRoute21:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable21
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway21
+
+  PrivateSubnet1RouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable21
+      SubnetId: !Ref PrivateSubnet21
+
+  NoIngressSecurityGroup2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "no-ingress-sg"
+      GroupDescription: "Security group with no ingress rule"
+      VpcId: !Ref VPC2
+
+  myInstance2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref Img2
+      SecurityGroupIds:
+      - !GetAtt VPC2.DefaultSecurityGroup
+      SubnetId: !Ref PrivateSubnet21
+      InstanceType: t2.micro
+
+Outputs:
+  VPC1:
+    Description: A reference to the created VPC
+    Value: !Ref VPC1
+
+  PublicSubnets1:
+    Description: A list of the public subnets
+    Value: !Join [ ",", [ !Ref PublicSubnet11  ]]
+
+  PrivateSubnets1:
+    Description: A list of the private subnets
+    Value: !Join [ ",", [ !Ref PrivateSubnet11 ]]
+
+  PublicSubnet11:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value: !Ref PublicSubnet11
+
+  PrivateSubnet11:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref PrivateSubnet11
+
+  NoIngressSecurityGroup1:
+    Description: Security group with no ingress rule
+    Value: !Ref NoIngressSecurityGroup1
+
+  VPC2:
+    Description: A reference to the created VPC
+    Value: !Ref VPC2
+
+  PublicSubnets2:
+    Description: A list of the public subnets
+    Value: !Join [ ",", [ !Ref PublicSubnet21  ]]
+
+  PrivateSubnets2:
+    Description: A list of the private subnets
+    Value: !Join [ ",", [ !Ref PrivateSubnet21 ]]
+
+  PublicSubnet21:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value: !Ref PublicSubnet21
+
+  PrivateSubnet21:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref PrivateSubnet21
+
+  NoIngressSecurityGroup2:
+    Description: Security group with no ingress rule
+    Value: !Ref NoIngressSecurityGroup2
